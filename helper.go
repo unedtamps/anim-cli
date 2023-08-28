@@ -3,10 +3,13 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"github.com/AlecAivazis/survey/v2"
+	"log"
 	"os"
+	"os/exec"
 	"strconv"
 	"strings"
+
+	"github.com/AlecAivazis/survey/v2"
 
 	"github.com/gosimple/slug"
 )
@@ -63,10 +66,30 @@ func Prompt(q string, opt []string) string {
 		Options:  opt,
 		Default:  opt[0],
 		PageSize: len(opt),
-		VimMode: true,
+		VimMode:  true,
 	}
 	if err := survey.AskOne(prompt, &answer, survey.WithValidator(survey.Required)); err != nil {
 		panic(err)
 	}
 	return answer
+}
+
+func FlagHelper(comd string, image string, port string, cont string) {
+	var cmd *exec.Cmd
+	if comd == "run" {
+		p := fmt.Sprintf("%s:3000", port)
+		cmd = exec.Command("docker", "run", "--name", cont, "-p", p, image)
+	} else {
+		cmd = exec.Command("docker", "start", cont)
+	}
+	if err := cmd.Run(); err != nil {
+		log.Fatal(err, "probably no such container: ", cont)
+	}
+}
+
+func StopServer(cont string) {
+	cmd := exec.Command("docker", "stop", cont)
+	if err := cmd.Run(); err != nil {
+		log.Fatal(err)
+	}
 }

@@ -22,6 +22,26 @@ func NewClient() (*Apilink, error) {
 	return api_link, nil
 }
 
+// func UpdateContainer(cont string) error {
+// 	api_link := new(Apilink)
+// 	file, err := os.ReadFile("./config.yaml")
+// 	if err != nil {
+// 		return err
+// 	}
+// 	if err := yaml.Unmarshal(file, api_link); err != nil {
+// 		return err
+// 	}
+// 	api_link.Api.Container = cont
+// 	data, err := yaml.Marshal(api_link)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	if err := os.WriteFile("./config.yaml", data, os.ModePerm); err != nil {
+// 		return err
+// 	}
+// 	return nil
+// }
+
 func (a *Apilink) SearchAnime(anime_name string) SearchResponse {
 
 	url := fmt.Sprintf("%s/anime/gogoanime/%s", a.Api.Url, anime_name)

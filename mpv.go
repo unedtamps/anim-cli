@@ -11,7 +11,6 @@ func StartMpv() {
 	if err := cmd.Run(); err != nil {
 		panic(err.Error())
 	}
-	defer cmd.Cancel()
 }
 
 func PlayVideo(link string) error {

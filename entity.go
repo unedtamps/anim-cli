@@ -31,5 +31,7 @@ type Apilink struct {
 }
 
 type Link struct {
-	Url string `yaml:"url"`
+	Url       string `yaml:"url"`
+	Image     string `yaml:"image"`
+	Container string `yaml:"container"`
 }

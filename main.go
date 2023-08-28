@@ -1,16 +1,27 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 )
 
 func main() {
-	go StartMpv()
+	var command string
+	var port string
+	cmd_helper := "(start|run) start = have container , run = make new"
+
 	api, err := NewClient()
 	if err != nil {
 		log.Fatal(err.Error())
 	}
+
+	flag.StringVar(&command, "cmd", "start", cmd_helper)
+	flag.StringVar(&port, "p", "3000", "port")
+	flag.Parse()
+
+	go FlagHelper(command, api.Api.Image, port, api.Api.Container)
+	go StartMpv()
 	for {
 		anime_name := ScanToSlug()
 		res := api.SearchAnime(anime_name)
@@ -30,6 +41,7 @@ func main() {
 			options := []string{"Next", "Select Episode", "Change Quality", "Change Anime", "Stop Player", "Quit"}
 			answer := Prompt("Options", options)
 			if answer == "Quit" {
+				StopServer(api.Api.Container)
 				return
 			} else if answer == "Select Episode" {
 				num_eps := Prompt("Select Episode", e_str)
