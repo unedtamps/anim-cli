@@ -2,38 +2,39 @@ package main
 
 import (
 	"fmt"
-	"time"
+	"log"
 )
 
 func main() {
-
 	go StartMpv()
-	time.Sleep(500 * time.Millisecond)
+	api, err := NewClient()
+	if err != nil {
+		log.Fatal(err.Error())
+	}
 	for {
 		anime_name := ScanToSlug()
-		anime_res := SearchAnime(anime_name)
-		anime_select, map_anime := MapingAnime(anime_res)
-		if anime_select == nil {
+		res := api.SearchAnime(anime_name)
+		search_anime, map_anime := MapingAnime(res)
+		if search_anime == nil {
 			fmt.Println("Anime Not Found , Try Again!")
 			continue
 		}
-		anime_selected := Prompt("Select Anime: ", anime_select)
-		total_episode := GetTotalEpisode(map_anime[anime_selected])
-		EpisodeNum, EpisodesId := MapingEpisode(total_episode, map_anime[anime_selected])
-		NumEpisode := Prompt("Select Episode", EpisodeNum)
-		number_episode := toInt(NumEpisode)
-		video_url := PlayingVideo(EpisodesId[number_episode])
-
+		sel_anime := Prompt("Select Anime: ", search_anime)
+		t_episode := api.GetTotalEpisode(map_anime[sel_anime])
+		e_str, e_id := MapingEpisode(t_episode, map_anime[sel_anime])
+		sel_eps := Prompt("Select Episode", e_str)
+		eps_num := toInt(sel_eps)
+		video_url := DefaultPlay(api.GetEpisodeUrl(e_id[eps_num]))
 		for {
-			number_episode += 1
+			eps_num += 1
 			options := []string{"Next", "Select Episode", "Change Quality", "Change Anime", "Stop Player", "Quit"}
 			answer := Prompt("Options", options)
 			if answer == "Quit" {
 				return
 			} else if answer == "Select Episode" {
-				NumEpisode := Prompt("Select Episode", EpisodeNum)
-				number_episode = toInt(NumEpisode)
-				video_url = PlayingVideo(EpisodesId[number_episode])
+				num_eps := Prompt("Select Episode", e_str)
+				eps_num = toInt(num_eps)
+				video_url = DefaultPlay(api.GetEpisodeUrl(e_id[eps_num]))
 				continue
 			} else if answer == "Change Anime" {
 				break
@@ -46,7 +47,7 @@ func main() {
 				PlayVideo("")
 				continue
 			}
-			PlayingVideo(EpisodesId[number_episode])
+			DefaultPlay(api.GetEpisodeUrl(e_id[eps_num]))
 		}
 	}
 }

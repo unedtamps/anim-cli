@@ -5,42 +5,60 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+
+	"gopkg.in/yaml.v3"
 )
 
-func SearchAnime(anime_name string) AnimeSearchResponse {
+func NewClient() (*Apilink, error) {
+	api_link := new(Apilink)
+	file, err := os.ReadFile("./config.yaml")
+	if err != nil {
+		return nil, err
+	}
+	if err := yaml.Unmarshal(file, api_link); err != nil {
+		return nil, err
+	}
+	return api_link, nil
+}
 
-	url := fmt.Sprintf("https://consumet-api-tam1.onrender.com/anime/gogoanime/%s", anime_name)
+func (a *Apilink) SearchAnime(anime_name string) SearchResponse {
+
+	url := fmt.Sprintf("%s/anime/gogoanime/%s", a.Api.Url, anime_name)
 	res, err := http.Get(url)
 	if err != nil {
-		panic(err)
+		panic(err.Error())
 	}
 	defer res.Body.Close()
 	if res.StatusCode != http.StatusOK {
-		panic("not found")
+		panic("Api Link Is Not Valid")
 	}
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
-		panic(err)
+		panic(err.Error())
 	}
-	var anime AnimeSearchResponse
-	err = json.Unmarshal(body, &anime)
+	var res_body SearchResponse
+	err = json.Unmarshal(body, &res_body)
 	if err != nil {
-		panic(err)
+		panic(err.Error())
 	}
-	return anime
+	return res_body
 }
 
-func GetVideoLink(id string) map[string]string {
+func (a *Apilink) GetVideoLink(id string) map[string]string {
 	var video_url VideoUrl
-	url := fmt.Sprintf("https://consumet-api-tam1.onrender.com/anime/gogoanime/watch/%s", id)
+	url := fmt.Sprintf("%s/anime/gogoanime/watch/%s", a.Api.Url, id)
 	res, err := http.Get(url)
 	if err != nil {
-		panic(err)
+		panic(err.Error())
+	}
+	if res.StatusCode != http.StatusOK {
+		panic(err.Error())
 	}
 	defer res.Body.Close()
 	data, err := io.ReadAll(res.Body)
 	if err := json.Unmarshal(data, &video_url); err != nil {
-		panic(err)
+		panic(err.Error())
 	}
 	quality_link := make(map[string]string)
 	lenght_arr := len(video_url.Sources)
@@ -50,9 +68,9 @@ func GetVideoLink(id string) map[string]string {
 	return quality_link
 }
 
-func GetTotalEpisode(id string) int {
+func (a *Apilink) GetTotalEpisode(id string) int {
 	var AnimeInfo map[string]interface{}
-	url := fmt.Sprintf("https://consumet-api-tam1.onrender.com/anime/gogoanime/info/%s", id)
+	url := fmt.Sprintf("%s/anime/gogoanime/info/%s", a.Api.Url, id)
 	response, err := http.Get(url)
 	if err != nil {
 		panic(err)
@@ -70,4 +88,9 @@ func GetTotalEpisode(id string) int {
 		panic("Episode Not Found")
 	}
 	return int(totalEpisode)
+}
+
+func (a *Apilink) GetEpisodeUrl(id string) map[string]string {
+	video_url := a.GetVideoLink(id)
+	return video_url
 }

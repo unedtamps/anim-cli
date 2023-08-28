@@ -6,6 +6,7 @@ require (
 	github.com/AlecAivazis/survey/v2 v2.3.7
 	github.com/blang/mpv v0.0.0-20160810175505-d56d7352e068
 	github.com/gosimple/slug v1.13.1
+	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c
 )
 
 require (

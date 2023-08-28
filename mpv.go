@@ -9,7 +9,7 @@ import (
 func StartMpv() {
 	cmd := exec.Command("mpv", "--idle", "--input-ipc-server=/tmp/mpvsocket")
 	if err := cmd.Run(); err != nil {
-		panic(err)
+		panic(err.Error())
 	}
 	defer cmd.Cancel()
 }
@@ -36,13 +36,12 @@ func PlayVideo(link string) error {
 	return nil
 }
 
-func PlayingVideo(episode_id string) map[string]string {
-	video_url := GetVideoLink(episode_id)
-	for _, i := range video_url {
+func DefaultPlay(episode map[string]string) map[string]string {
+	for _, i := range episode {
 		if err := PlayVideo(i); err != nil {
 			continue
 		}
 		break
 	}
-	return video_url
+	return episode
 }

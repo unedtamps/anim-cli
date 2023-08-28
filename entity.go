@@ -6,9 +6,9 @@ type AnimeGeneral struct {
 }
 
 type SearchResponse struct {
-	CurrentPage int            `json:"currentPage"`
-	HasNextPage bool           `json:"hasNextPage"`
-	Results     []AnimeGeneral `json:"results"`
+	CurrentPage int            `json:"currentPage,omitempty"`
+	HasNextPage bool           `json:"hasNextPage,omitempty"`
+	Results     []AnimeGeneral `json:"results,omitempty"`
 }
 
 type SourceVideo struct {

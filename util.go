@@ -33,7 +33,7 @@ func ToSlug(a ...string) string {
 	return strings.Join(a, "-")
 }
 
-func MapingAnime(anime AnimeSearchResponse) ([]string, map[string]string) {
+func MapingAnime(anime SearchResponse) ([]string, map[string]string) {
 
 	var anime_select []string
 	map_id := make(map[string]string)
