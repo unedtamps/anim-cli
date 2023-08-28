@@ -1,0 +1,4 @@
+api:
+    url: http://localhost:3000
+    image: riimuru/consumet-api
+    container: anime-api
