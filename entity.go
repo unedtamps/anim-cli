@@ -5,10 +5,10 @@ type AnimeGeneral struct {
 	Title string `json:"title,omitempty"`
 }
 
-type AnimeSearchResponse struct {
-	CurrentPage int            `json:"currentPage,omitempty"`
-	HasNextPage bool           `json:"hasNextPage,omitempty"`
-	Results     []AnimeGeneral `json:"results,omitempty"`
+type SearchResponse struct {
+	CurrentPage int            `json:"currentPage"`
+	HasNextPage bool           `json:"hasNextPage"`
+	Results     []AnimeGeneral `json:"results"`
 }
 
 type SourceVideo struct {
@@ -24,4 +24,12 @@ type HeaderVideo struct {
 type VideoUrl struct {
 	Headers HeaderVideo   `json:"headers,omitempty"`
 	Sources []SourceVideo `json:"sources,omitempty"`
+}
+
+type Apilink struct {
+	Api Link `yaml:"api"`
+}
+
+type Link struct {
+	Url string `yaml:"url"`
 }
