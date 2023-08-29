@@ -5,46 +5,15 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
-
-	"gopkg.in/yaml.v3"
 )
 
-func NewClient() (*Apilink, error) {
-	pwd, err := os.Getwd()
-	if err != nil {
-		return nil, err
-	}
+func NewAPIClient() (*Apilink, error) {
 	api_link := new(Apilink)
-	file, err := os.ReadFile(fmt.Sprintf("%s/config.yaml", pwd))
-	if err != nil {
-		return nil, err
-	}
-	if err := yaml.Unmarshal(file, api_link); err != nil {
-		return nil, err
-	}
+	api_link.Api.Url = container_url
+	api_link.Api.Image = container_image
+	api_link.Api.Container = container_name
 	return api_link, nil
 }
-
-// func UpdateContainer(cont string) error {
-// 	api_link := new(Apilink)
-// 	file, err := os.ReadFile("./config.yaml")
-// 	if err != nil {
-// 		return err
-// 	}
-// 	if err := yaml.Unmarshal(file, api_link); err != nil {
-// 		return err
-// 	}
-// 	api_link.Api.Container = cont
-// 	data, err := yaml.Marshal(api_link)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	if err := os.WriteFile("./config.yaml", data, os.ModePerm); err != nil {
-// 		return err
-// 	}
-// 	return nil
-// }
 
 func (a *Apilink) SearchAnime(anime_name string) SearchResponse {
 
