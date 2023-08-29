@@ -11,8 +11,12 @@ import (
 )
 
 func NewClient() (*Apilink, error) {
+	pwd, err := os.Getwd()
+	if err != nil {
+		return nil, err
+	}
 	api_link := new(Apilink)
-	file, err := os.ReadFile("./config.yaml")
+	file, err := os.ReadFile(fmt.Sprintf("%s/config.yaml", pwd))
 	if err != nil {
 		return nil, err
 	}
