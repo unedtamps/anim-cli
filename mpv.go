@@ -1,6 +1,7 @@
 package main
 
 import (
+	"os"
 	"os/exec"
 
 	"github.com/blang/mpv"
@@ -11,6 +12,8 @@ func StartMpv() {
 	if err := cmd.Run(); err != nil {
 		panic(err.Error())
 	}
+	StopServer(container_name)
+	os.Exit(1)
 }
 
 func PlayVideo(link string) error {

@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"time"
 )
 
 func main() {
@@ -11,17 +12,18 @@ func main() {
 	var port string
 	cmd_helper := "(start|run) start = have container , run = make new"
 
-	api, err := NewClient()
+	flag.StringVar(&command, "cmd", "start", cmd_helper)
+	flag.StringVar(&port, "p", "3000", "port")
+	flag.Parse()
+	container_url = fmt.Sprintf("http://localhost:%s", port)
+	api, err := NewAPIClient()
 	if err != nil {
 		log.Fatal(err.Error())
 	}
 
-	flag.StringVar(&command, "cmd", "start", cmd_helper)
-	flag.StringVar(&port, "p", "3000", "port")
-	flag.Parse()
-
 	go FlagHelper(command, api.Api.Image, port, api.Api.Container)
 	go StartMpv()
+	time.Sleep(time.Millisecond * 1000)
 	for {
 		anime_name := ScanToSlug()
 		res := api.SearchAnime(anime_name)
