@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"log"
 	"time"
+	"github.com/fatih/color"
 )
+
+var red = color.New(color.FgRed, color.Bold)
 
 func main() {
 	var command string
@@ -40,9 +43,10 @@ func main() {
 		video_url := DefaultPlay(api.GetEpisodeUrl(e_id[eps_num]))
 		for {
 			eps_num += 1
-			options := []string{"Next", "Select Episode", "Change Quality", "Change Anime", "Stop Player", "Quit"}
+			options := []string{"Next", "Previous", "Select Episode", "Change Quality", "Change Anime", "Stop Player", "Quit"}
 			answer := Prompt("Options", options)
 			if answer == "Quit" {
+				PlayVideo("")
 				StopServer(api.Api.Container)
 				return
 			} else if answer == "Select Episode" {
@@ -60,8 +64,20 @@ func main() {
 			} else if answer == "Stop Player" {
 				PlayVideo("")
 				continue
+			} else if answer == "Previous" {
+				eps_num -= 2
+				if eps_num <= 0 {
+					red.Println("Episode not found")
+					continue
+				}
+				video_url = DefaultPlay(api.GetEpisodeUrl(e_id[eps_num]))
+				continue
 			}
-			DefaultPlay(api.GetEpisodeUrl(e_id[eps_num]))
+			if eps_num > t_episode {
+				red.Println("Episode not found")
+				continue
+			}
+			video_url = DefaultPlay(api.GetEpisodeUrl(e_id[eps_num]))
 		}
 	}
 }

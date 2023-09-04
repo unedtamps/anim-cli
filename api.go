@@ -1,10 +1,13 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
+	"time"
 )
 
 func NewAPIClient() (*Apilink, error) {
@@ -18,22 +21,29 @@ func NewAPIClient() (*Apilink, error) {
 func (a *Apilink) SearchAnime(anime_name string) SearchResponse {
 
 	url := fmt.Sprintf("%s/anime/gogoanime/%s", a.Api.Url, anime_name)
-	res, err := http.Get(url)
+	req, err := http.NewRequest("GET", url, nil)
+	ctx, cencel := context.WithTimeout(context.Background(), time.Second*3)
+	req = req.WithContext(ctx)
+	defer cencel()
+
+	client := http.DefaultClient
+	res, err := client.Do(req)
 	if err != nil {
-		panic(err.Error())
+		log.Fatalf("%v", err)
 	}
 	defer res.Body.Close()
+
 	if res.StatusCode != http.StatusOK {
 		panic("Api Link Is Not Valid")
 	}
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
-		panic(err.Error())
+		log.Fatalf("%v", err)
 	}
 	var res_body SearchResponse
 	err = json.Unmarshal(body, &res_body)
 	if err != nil {
-		panic(err.Error())
+		log.Fatalf("%v", err)
 	}
 	return res_body
 }
@@ -41,17 +51,24 @@ func (a *Apilink) SearchAnime(anime_name string) SearchResponse {
 func (a *Apilink) GetVideoLink(id string) map[string]string {
 	var video_url VideoUrl
 	url := fmt.Sprintf("%s/anime/gogoanime/watch/%s", a.Api.Url, id)
-	res, err := http.Get(url)
+	req, err := http.NewRequest("GET", url, nil)
+	ctx, cencel := context.WithTimeout(context.Background(), time.Second*3)
+	req = req.WithContext(ctx)
+	defer cencel()
+
+	client := http.DefaultClient
+	res, err := client.Do(req)
 	if err != nil {
-		panic(err.Error())
+		log.Fatalf("%v", err)
 	}
+	defer res.Body.Close()
 	if res.StatusCode != http.StatusOK {
-		panic(err.Error())
+		log.Fatalf("%v", err)
 	}
 	defer res.Body.Close()
 	data, err := io.ReadAll(res.Body)
 	if err := json.Unmarshal(data, &video_url); err != nil {
-		panic(err.Error())
+		log.Fatalf("%v", err)
 	}
 	quality_link := make(map[string]string)
 	lenght_arr := len(video_url.Sources)
@@ -64,17 +81,23 @@ func (a *Apilink) GetVideoLink(id string) map[string]string {
 func (a *Apilink) GetTotalEpisode(id string) int {
 	var AnimeInfo map[string]interface{}
 	url := fmt.Sprintf("%s/anime/gogoanime/info/%s", a.Api.Url, id)
-	response, err := http.Get(url)
+	req, err := http.NewRequest("GET", url, nil)
+	ctx, cencel := context.WithTimeout(context.Background(), time.Second*3)
+	req = req.WithContext(ctx)
+	defer cencel()
+
+	client := http.DefaultClient
+	res, err := client.Do(req)
 	if err != nil {
-		panic(err)
+		log.Fatalf("%v", err)
 	}
-	defer response.Body.Close()
-	data, err := io.ReadAll(response.Body)
+	defer res.Body.Close()
+	data, err := io.ReadAll(res.Body)
 	if err != nil {
-		panic(err)
+		log.Fatalf("%v", err)
 	}
 	if err := json.Unmarshal(data, &AnimeInfo); err != nil {
-		panic(err)
+		log.Fatalf("%v", err)
 	}
 	totalEpisode, ok := AnimeInfo["totalEpisodes"].(float64)
 	if !ok {
