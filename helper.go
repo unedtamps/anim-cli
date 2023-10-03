@@ -74,7 +74,7 @@ func Prompt(q string, opt []string) string {
 	return answer
 }
 
-func FlagHelper(comd string, image string, port string, cont string) {
+func FlagHelper(comd, image, port, cont string, done chan<- struct{}) {
 	var cmd *exec.Cmd
 	if comd == "run" {
 		p := fmt.Sprintf("%s:3000", port)
@@ -85,6 +85,7 @@ func FlagHelper(comd string, image string, port string, cont string) {
 	if err := cmd.Run(); err != nil {
 		log.Fatal(err, "probably no such container: ", cont)
 	}
+	done <- struct{}{}
 }
 
 func StopServer(cont string) {
