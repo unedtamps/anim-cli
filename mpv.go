@@ -1,28 +1,33 @@
 package main
 
 import (
-	"os"
+	"fmt"
 	"os/exec"
 
 	"github.com/blang/mpv"
 )
 
 func StartMpv() {
-	cmd := exec.Command("mpv", "--idle", "--input-ipc-server=/tmp/mpvsocket")
+	cmd := exec.Command("mpv", "--idle", "--input-ipc-server=./mpvsocket")
 	if err := cmd.Run(); err != nil {
 		panic(err.Error())
 	}
-	StopServer(container_name)
-	os.Exit(1)
+	StartMpv()
 }
 
 func PlayVideo(link string) error {
-	ipcc := mpv.NewIPCClient("/tmp/mpvsocket")
+	ipcc := mpv.NewIPCClient("./mpvsocket")
+
 	c := mpv.NewClient(ipcc)
 	err := c.Loadfile(link, mpv.LoadFileModeReplace)
 	if err != nil {
 		return err
 	}
+	err = c.SetFullscreen(true)
+	if err != nil {
+		return err
+	}
+
 	err = c.Seek(600, mpv.SeekModeAbsolute)
 	if err != nil {
 		return err
@@ -31,15 +36,12 @@ func PlayVideo(link string) error {
 	if err != nil {
 		return err
 	}
-	err = c.PlaylistNext()
-	if err != nil {
-		return err
-	}
 	return nil
 }
 
 func DefaultPlay(episode map[string]string) map[string]string {
 	for _, i := range episode {
+		fmt.Println("played: ", i)
 		if err := PlayVideo(i); err != nil {
 			continue
 		}

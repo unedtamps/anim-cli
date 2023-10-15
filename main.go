@@ -3,13 +3,14 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
 	"sync"
 
 	"github.com/fatih/color"
+	"github.com/sirupsen/logrus"
 )
 
 var red = color.New(color.FgRed, color.Bold)
+var loger = logrus.New()
 
 func main() {
 	var wg sync.WaitGroup
@@ -25,7 +26,7 @@ func main() {
 
 	api, err := NewAPIClient()
 	if err != nil {
-		log.Fatal(err.Error())
+		loger.Fatal(err.Error())
 	}
 
 	done := make(chan struct{})
@@ -38,12 +39,12 @@ func main() {
 		err, res := api.SearchAnime(anime_name)
 		if err != nil {
 			//search again if error
-			log.Println(err.Error())
+			loger.Println(err.Error())
 			continue
 		}
 		search_anime, map_anime := MapingAnime(res)
 		if search_anime == nil {
-			fmt.Println("Anime Not Found , Try Again!")
+			red.Println("Anime Not Found , Try Again!")
 			continue
 		}
 		sel_anime := Prompt("Select Anime: ", search_anime)
@@ -71,11 +72,10 @@ func main() {
 		video_url := DefaultPlay(api.GetEpisodeUrl(e_id[eps_num]))
 
 		for {
-			eps_num += 1
 			eps_url := maping_id_eps[e_id[eps_num]]
-			options := []string{"Next", "Previous", "Select Episode", "Change Quality", "Change Anime", "Stop Player", "Quit"}
-			answer := Prompt("Options", options)
-			if answer == "Quit" {
+			options := []string{"Next Episode", "Previous Episode", "Select Episode", "Change Quality", "Other Anime", "Stop Video", "Exit"}
+			answer := Prompt("Menu", options)
+			if answer == "Exit" {
 				PlayVideo("")
 				go StopServer(api.Api.Container)
 				return
@@ -89,18 +89,20 @@ func main() {
 				}
 				video_url = DefaultPlay(api.GetEpisodeUrl(e_id[eps_num]))
 				continue
-			} else if answer == "Change Anime" {
+			} else if answer == "Other Anime" {
 				break
 			} else if answer == "Change Quality" {
 				optionq := []string{"360p", "480p", "720p", "1080p"}
 				Quality := Prompt("Select Quality", optionq)
 				PlayVideo(video_url[Quality])
 				continue
-			} else if answer == "Stop Player" {
+			} else if answer == "Stop Video" {
 				PlayVideo("")
 				continue
-			} else if answer == "Previous" {
-				eps_num -= 2
+			} else if answer == "Previous Episode" {
+				eps_num -= 1
+				eps_url = maping_id_eps[e_id[eps_num]]
+
 				if eps_num <= 0 {
 					red.Println("Episode not found")
 					continue
@@ -112,10 +114,12 @@ func main() {
 				video_url = DefaultPlay(api.GetEpisodeUrl(e_id[eps_num]))
 				continue
 			}
+			eps_num += 1
 			if eps_num > t_episode {
 				red.Println("Episode not found")
 				continue
 			}
+			eps_url = maping_id_eps[e_id[eps_num]]
 			if eps_url != nil {
 				video_url = DefaultPlay(eps_url)
 				continue

@@ -3,19 +3,21 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 	"strconv"
 	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
+	"github.com/fatih/color"
 
 	"github.com/gosimple/slug"
 )
 
+var input = color.New(color.FgBlue, color.Bold)
+
 func ScanToSlug() string {
-	fmt.Print("Search Anime: ")
+	input.Print("Search Anime: ")
 	reader := bufio.NewReader(os.Stdin)
 
 	anime_name, _ := reader.ReadString('\n')
@@ -52,8 +54,8 @@ func MapingEpisode(total_episode int, anime_id string) ([]string, map[int]string
 	EpisodesId := make(map[int]string)
 	for i := 1; i <= total_episode; i++ {
 		index := fmt.Sprintf("%d", i)
-		EpisodeId := ToSlug(anime_id, "episode", toStr(i))
-		EpisodesId[toInt(index)] = EpisodeId
+		EpisodeId := ToSlug(anime_id, "episode", index)
+		EpisodesId[i] = EpisodeId
 		EpisodeNum = append(EpisodeNum, index)
 	}
 	return EpisodeNum, EpisodesId
@@ -65,11 +67,11 @@ func Prompt(q string, opt []string) string {
 		Message:  q,
 		Options:  opt,
 		Default:  opt[0],
-		PageSize: len(opt),
+		PageSize: 10,
 		VimMode:  true,
 	}
 	if err := survey.AskOne(prompt, &answer, survey.WithValidator(survey.Required)); err != nil {
-		panic(err)
+		loger.Fatal(err.Error())
 	}
 	return answer
 }
@@ -83,7 +85,7 @@ func FlagHelper(comd, image, port, cont string, done chan<- struct{}) {
 		cmd = exec.Command("docker", "start", cont)
 	}
 	if err := cmd.Run(); err != nil {
-		log.Fatal(err, "probably no such container: ", cont)
+		loger.Fatal(err, "probably no such container: ", cont)
 	}
 	done <- struct{}{}
 }
@@ -91,6 +93,6 @@ func FlagHelper(comd, image, port, cont string, done chan<- struct{}) {
 func StopServer(cont string) {
 	cmd := exec.Command("docker", "stop", cont)
 	if err := cmd.Run(); err != nil {
-		log.Fatal(err)
+		loger.Fatal(err)
 	}
 }

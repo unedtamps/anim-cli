@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"sync"
 	"time"
@@ -24,7 +23,7 @@ func (a *Apilink) SearchAnime(anime_name string) (error, SearchResponse) {
 
 	url := fmt.Sprintf("%s/anime/gogoanime/%s", a.Api.Url, anime_name)
 	req, err := http.NewRequest("GET", url, nil)
-	ctx, cencel := context.WithTimeout(context.Background(), time.Second*3)
+	ctx, cencel := context.WithTimeout(context.Background(), time.Second*10)
 	req = req.WithContext(ctx)
 	defer cencel()
 
@@ -56,7 +55,7 @@ func (a *Apilink) GetVideoLink(id string) map[string]string {
 
 	url := fmt.Sprintf("%s/anime/gogoanime/watch/%s", a.Api.Url, id)
 	req, err := http.NewRequest("GET", url, nil)
-	ctx, cencel := context.WithTimeout(context.Background(), time.Second*5)
+	ctx, cencel := context.WithTimeout(context.Background(), time.Second*10)
 	req = req.WithContext(ctx)
 	defer cencel()
 
@@ -68,17 +67,17 @@ func (a *Apilink) GetVideoLink(id string) map[string]string {
 	}
 	defer res.Body.Close()
 	if res.StatusCode != http.StatusOK {
-		log.Printf("%v", err)
+		loger.Fatalf("%v", "Anime is not found")
 		return nil
 	}
 	defer res.Body.Close()
 	data, err := io.ReadAll(res.Body)
 	if err := json.Unmarshal(data, &video_url); err != nil {
-		log.Printf("%v", err)
+		loger.Printf("%v", err)
 		return nil
 	}
 	lenght_arr := len(video_url.Sources)
-	for i := lenght_arr - 3; i >= 0; i-- {
+	for i := lenght_arr - 2; i >= 0; i-- {
 		quality_link[video_url.Sources[i].Quality] = video_url.Sources[i].Url
 	}
 	return quality_link
@@ -88,24 +87,24 @@ func (a *Apilink) GetTotalEpisode(id string) int {
 	var AnimeInfo map[string]interface{}
 	url := fmt.Sprintf("%s/anime/gogoanime/info/%s", a.Api.Url, id)
 	req, err := http.NewRequest("GET", url, nil)
-	ctx, cencel := context.WithTimeout(context.Background(), time.Second*5)
+	ctx, cencel := context.WithTimeout(context.Background(), time.Second*9)
 	req = req.WithContext(ctx)
 	defer cencel()
 
 	client := http.DefaultClient
 	res, err := client.Do(req)
 	if err != nil {
-		log.Printf("%v", err)
+		loger.Printf("%v", err)
 		return 0
 	}
 	defer res.Body.Close()
 	data, err := io.ReadAll(res.Body)
 	if err != nil {
-		log.Printf("%v", err)
+		loger.Printf("%v", err)
 		return 0
 	}
 	if err := json.Unmarshal(data, &AnimeInfo); err != nil {
-		log.Printf("%v", err)
+		loger.Printf("%v", err)
 		return 0
 	}
 	totalEpisode, ok := AnimeInfo["totalEpisodes"].(float64)
