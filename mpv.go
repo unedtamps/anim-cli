@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"os/exec"
 
 	"github.com/blang/mpv"
@@ -41,7 +40,6 @@ func PlayVideo(link string) error {
 
 func DefaultPlay(episode map[string]string) map[string]string {
 	for _, i := range episode {
-		fmt.Println("played: ", i)
 		if err := PlayVideo(i); err != nil {
 			continue
 		}
