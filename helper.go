@@ -4,9 +4,9 @@ import (
 	"bufio"
 	"fmt"
 	"os"
-	"os/exec"
 	"strconv"
 	"strings"
+	"syscall"
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/fatih/color"
@@ -71,28 +71,29 @@ func Prompt(q string, opt []string) string {
 		VimMode:  true,
 	}
 	if err := survey.AskOne(prompt, &answer, survey.WithValidator(survey.Required)); err != nil {
-		loger.Fatal(err.Error())
+		loger.Println(err)
+		syscall.Kill(os.Getpid(), syscall.SIGINT)
 	}
 	return answer
 }
 
-func FlagHelper(comd, image, port, cont string, done chan<- struct{}) {
-	var cmd *exec.Cmd
-	if comd == "run" {
-		p := fmt.Sprintf("%s:3000", port)
-		cmd = exec.Command("docker", "run", "--name", cont, "-p", p, image)
-	} else {
-		cmd = exec.Command("docker", "start", cont)
-	}
-	if err := cmd.Run(); err != nil {
-		loger.Fatal(err, "probably no such container: ", cont)
-	}
-	done <- struct{}{}
-}
+// func FlagHelper(comd, image, port, cont string, done chan<- struct{}) {
+// 	var cmd *exec.Cmd
+// 	if comd == "run" {
+// 		p := fmt.Sprintf("%s:3000", port)
+// 		cmd = exec.Command("docker", "run", "--name", cont, "-p", p, image)
+// 	} else {
+// 		cmd = exec.Command("docker", "start", cont)
+// 	}
+// 	if err := cmd.Run(); err != nil {
+// 		loger.Fatal(err, "probably no such container: ", cont)
+// 	}
+// 	done <- struct{}{}
+// }
 
-func StopServer(cont string) {
-	cmd := exec.Command("docker", "stop", cont)
-	if err := cmd.Run(); err != nil {
-		loger.Fatal(err)
-	}
-}
+// func StopServer(cont string) {
+// 	cmd := exec.Command("docker", "stop", cont)
+// 	if err := cmd.Run(); err != nil {
+// 		loger.Fatal(err)
+// 	}
+// }
