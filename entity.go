@@ -26,12 +26,27 @@ type VideoUrl struct {
 	Sources []SourceVideo `json:"sources,omitempty"`
 }
 
-type Apilink struct {
-	Api Link `yaml:"api"`
+type Api struct {
+	Url string
 }
 
-type Link struct {
-	Url       string `yaml:"url"`
-	Image     string `yaml:"image"`
-	Container string `yaml:"container"`
+type SearchAnime struct {
+	CurrentPage int         `json:"currentPage,omitempty"`
+	HasNextPage bool        `json:"hasNextPage,omitempty"`
+	TotalPage   int         `json:"totalPage,omitempty"`
+	Results     []AnimeInfo `json:"results,omitempty"`
+}
+
+type AnimeInfo struct {
+	Id            string `json:"id,omitempty"`
+	Title         string `json:"title,omitempty"`
+	Url           string `json:"url,omitempty"`
+	Image         string `json:"image,omitempty"`
+	Duration      string `json:"duration,omitempty"`
+	JapaneseTitle string `json:"japaneseTitle,omitempty"`
+	Type          string `json:"type,omitempty"`
+	Nsfw          bool   `json:"nsfw,omitempty"`
+	Sub           int    `json:"sub,omitempty"`
+	Dub           int    `json:"dub,omitempty"`
+	Episode       int    `json:"episodes,omitempty"`
 }

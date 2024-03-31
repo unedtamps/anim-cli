@@ -7,25 +7,24 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 )
 
-func NewAPIClient() (*Apilink, error) {
-	api_link := new(Apilink)
-	api_link.Api.Url = container_url
-	api_link.Api.Image = container_image
-	api_link.Api.Container = container_name
-	return api_link, nil
+func NewAPIClient() (*Api, error) {
+	if API_URL == "" {
+		return nil, errors.New("NO API")
+	}
+	return &Api{API_URL}, nil
 }
 
-func (a *Apilink) SearchAnime(anime_name string) (error, SearchResponse) {
+func (a *Api) SearchAnime(anime_name string) (error, SearchResponse) {
 
-	url := fmt.Sprintf("%s/anime/gogoanime/%s", a.Api.Url, anime_name)
+	url := fmt.Sprintf("%s/anime/gogoanime/%s", a.Url, anime_name)
 	req, err := http.NewRequest("GET", url, nil)
-	ctx, cencel := context.WithTimeout(context.Background(), time.Second*10)
+	ctx := context.Background()
 	req = req.WithContext(ctx)
-	defer cencel()
 
 	client := http.DefaultClient
 	res, err := client.Do(req)
@@ -49,25 +48,22 @@ func (a *Apilink) SearchAnime(anime_name string) (error, SearchResponse) {
 	return nil, res_body
 }
 
-func (a *Apilink) GetVideoLink(id string) map[string]string {
+func (a *Api) GetVideoLink(id string) map[string]string {
 	var video_url VideoUrl
 	quality_link := make(map[string]string)
 
-	url := fmt.Sprintf("%s/anime/gogoanime/watch/%s", a.Api.Url, id)
+	url := fmt.Sprintf("%s/anime/gogoanime/watch/%s", a.Url, id)
 	req, err := http.NewRequest("GET", url, nil)
-	ctx, cencel := context.WithTimeout(context.Background(), time.Second*10)
+	ctx := context.Background()
 	req = req.WithContext(ctx)
-	defer cencel()
 
 	client := http.DefaultClient
 	res, err := client.Do(req)
 	if err != nil {
-		// log.Printf("%v", err)
 		return nil
 	}
 	defer res.Body.Close()
 	if res.StatusCode != http.StatusOK {
-		loger.Fatalf("%v", "Anime is not found")
 		return nil
 	}
 	defer res.Body.Close()
@@ -83,12 +79,14 @@ func (a *Apilink) GetVideoLink(id string) map[string]string {
 	return quality_link
 }
 
-func (a *Apilink) GetTotalEpisode(id string) int {
-	var AnimeInfo map[string]interface{}
-	url := fmt.Sprintf("%s/anime/gogoanime/info/%s", a.Api.Url, id)
+func (a *Api) GetTotalEpisode(title string) int {
+
+	url := fmt.Sprintf("%s/anime/zoro/%s", a.Url, title)
+
 	req, err := http.NewRequest("GET", url, nil)
 	ctx, cencel := context.WithTimeout(context.Background(), time.Second*9)
 	req = req.WithContext(ctx)
+
 	defer cencel()
 
 	client := http.DefaultClient
@@ -103,38 +101,40 @@ func (a *Apilink) GetTotalEpisode(id string) int {
 		loger.Printf("%v", err)
 		return 0
 	}
+	var AnimeInfo SearchAnime
 	if err := json.Unmarshal(data, &AnimeInfo); err != nil {
 		loger.Printf("%v", err)
 		return 0
 	}
-	totalEpisode, ok := AnimeInfo["totalEpisodes"].(float64)
-	if !ok {
-		return 0
+
+	title_split := strings.Split(title, " ")
+	if title_split[len(title_split)-1] == "(Dub)" {
+		title = strings.Join(title_split[:len(title_split)-1], " ")
 	}
-	return int(totalEpisode)
-}
 
-func (a *Apilink) GetEpisodeUrl(id string) map[string]string {
-	videochan := make(chan map[string]string)
-	go func() {
-		for {
-			video_url := a.GetVideoLink(id)
-			if video_url == nil {
-				continue
-			}
-			videochan <- video_url
+	length := len(AnimeInfo.Results)
+	for i := 0; i < length; i++ {
+		anime := AnimeInfo.Results[i]
+		if strings.ToLower(anime.JapaneseTitle) == strings.ToLower(title) {
+			return anime.Sub
 		}
-	}()
-	return <-videochan
+	}
+	return 0
+
 }
 
-func (a *Apilink) ConcurentEpisode(total_e int, e_id map[int]string, eps_url *map[string]map[string]string) {
+func (a *Api) ConcurentEpisode(
+	total_e int,
+	e_id map[int]string,
+	eps_url *map[string]map[string]string,
+	done chan<- struct{},
+) {
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	wg.Add(total_e)
 	for i := 1; i <= total_e; i++ {
 		go func(i int) {
-			video_url := a.GetEpisodeUrl(e_id[i])
+			video_url := a.GetVideoLink(e_id[i])
 			mu.Lock()
 			(*eps_url)[e_id[i]] = video_url
 			mu.Unlock()
@@ -142,4 +142,5 @@ func (a *Apilink) ConcurentEpisode(total_e int, e_id map[int]string, eps_url *ma
 		}(i)
 	}
 	wg.Wait()
+	done <- struct{}{}
 }
