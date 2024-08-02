@@ -87,6 +87,10 @@ func main() {
 			map_video[vc.Key] = &vc.SearchVideo
 		}
 		videos := map_video[select_eps]
+		if videos == nil {
+			Red.Println("Video Not Found")
+			continue
+		}
 
 		quality := "720"
 		url, subtitles := GetVideo(videos, quality)

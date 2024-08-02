@@ -144,8 +144,8 @@ func preFetchVideos(
 		if start < 0 {
 			start = 0
 		}
-		if end > (len(keys) - 1) {
-			end = len(keys) - 1
+		if end > len(keys) {
+			end = len(keys)
 		}
 
 		keys = keys[start:end]
