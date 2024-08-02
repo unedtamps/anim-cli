@@ -85,7 +85,6 @@ func GetInfo(ctx context.Context, query Result) ([]Episode, error) {
 }
 
 func GetVideos(ctx context.Context, media Result, query Episode) (*SearchVideo, error) {
-	Magenta.Println("Please Wait...")
 	var url string
 	if media.Type {
 		url = fmt.Sprintf(
@@ -130,22 +129,22 @@ func DownloadSubtitle(ctx context.Context, filename string, urlStr string) error
 	return nil
 }
 
-func preFetchEpisode(
+func preFetchVideos(
 	ctx context.Context,
 	map_eps map[string]Episode,
 	media Result,
 	keys []string,
 	index int,
-	search chan *SearchVideo,
+	video_chan chan<- *SearvideoChan,
 ) {
-	if len(keys) > 100 {
-		start := index - 50
-		end := index + 50
+	if len(keys) > 40 {
+		start := index - 20
+		end := index + 20
 
-		if index-50 < 0 {
+		if start < 0 {
 			start = 0
 		}
-		if index+50 > (len(keys) - 1) {
+		if end > (len(keys) - 1) {
 			end = len(keys) - 1
 		}
 
@@ -156,19 +155,23 @@ func preFetchEpisode(
 
 	for _, k := range keys {
 		go func(k string) {
+			defer wg.Done()
 			videos, err := GetVideos(ctx, media, map_eps[k])
 			if err != nil {
-				search <- nil
-				wg.Done()
+				video_chan <- nil
+				return
 			}
-			search <- videos
-			wg.Done()
+			video_chan <- &SearvideoChan{
+				Key:         k,
+				SearchVideo: *videos,
+			}
 		}(k)
 	}
 
 	go func() {
+		Magenta.Println("Please wait...")
 		wg.Wait()
-		close(search)
+		close(video_chan)
 	}()
 
 }

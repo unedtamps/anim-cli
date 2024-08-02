@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"sort"
 	"strings"
 	"syscall"
 
@@ -38,16 +37,16 @@ func MapingResult(results []Result, keyword string) ([]string, map[string]Result
 		options = append(options, option)
 		map_res[option] = r
 	}
-	a := []rune(strings.ToLower(keyword))
-	firstWord := string(a[0:1])
-	sort.Slice(options, func(i, j int) bool {
-		is := strings.HasPrefix(strings.ToLower(options[i]), firstWord)
-		js := strings.HasPrefix(strings.ToLower(options[j]), firstWord)
-		if is == js {
-			return i < j
-		}
-		return is && !js
-	})
+	// a := []rune(strings.ToLower(keyword))
+	// firstWord := string(a[0:1])
+	// sort.Slice(options, func(i, j int) bool {
+	// 	is := strings.HasPrefix(strings.ToLower(options[i]), firstWord)
+	// 	js := strings.HasPrefix(strings.ToLower(options[j]), firstWord)
+	// 	if is == js {
+	// 		return i < j
+	// 	}
+	// 	return is && !js
+	// })
 
 	return options, map_res
 }
@@ -58,8 +57,7 @@ func MapingEpisode(media Result, episodes []Episode) ([]string, map[string]Episo
 	for _, e := range episodes {
 		var option string
 		if media.Type {
-			title := strings.Split(e.Title, ":")[1]
-			option = fmt.Sprintf("%d-%d (%s)", e.Season, e.Number, strings.TrimSpace(title))
+			option = fmt.Sprintf("Season %d %s", e.Season, e.Title)
 		} else {
 			option = fmt.Sprintf("%d", e.Number)
 		}
@@ -99,7 +97,6 @@ func Prompt(q string, options []string) string {
 	}
 	_, res, err := selector.Run()
 	if err != nil {
-		Red.Println(err.Error())
 		syscall.Kill(os.Getpid(), syscall.SIGINT)
 	}
 	return res

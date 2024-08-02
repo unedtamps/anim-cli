@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/sirupsen/logrus"
 )
@@ -71,14 +72,21 @@ func main() {
 		select_eps := Prompt("Select <Season-Episode>...", options)
 
 		episode_index := FindIndex(options, select_eps)
-
 		episode := map_eps[select_eps]
 
-		videos, err := GetVideos(ctx, result, episode)
-		if err != nil {
-			Red.Println(err.Error())
-			continue
+		map_video := make(map[string]*SearchVideo)
+		vidio_chan := make(chan *SearvideoChan)
+		for _, k := range options {
+			map_video[k] = nil
 		}
+		go preFetchVideos(ctx, map_eps, result, options, episode_index, vidio_chan)
+		for vc := range vidio_chan {
+			if vc == nil {
+				continue
+			}
+			map_video[vc.Key] = &vc.SearchVideo
+		}
+		videos := map_video[select_eps]
 
 		quality := "720"
 		url, subtitles := GetVideo(videos, quality)
@@ -95,7 +103,7 @@ func main() {
 			if result.Type {
 				q_menu = Cyan.Sprintf("Now Playing... %s Season %d %s", result.Title, episode.Season, episode.Title)
 			} else {
-				q_menu = Cyan.Sprintf("Now Playing... %s (%d) ", result.Title, episode.Number)
+				q_menu = Cyan.Sprintf("Now Playing... %s Episode %d ", result.Title, episode.Number)
 			}
 			menus := []string{
 				"next episode",
@@ -109,51 +117,73 @@ func main() {
 			case "select episode":
 				select_eps = Prompt("Select <Season-Episode>...", options)
 				episode = map_eps[select_eps]
-				videos, err = GetVideos(ctx, result, episode)
-				if err != nil {
-					Red.Println(err.Error())
-					continue
+				episode_index = FindIndex(options, select_eps)
+				videos = map_video[select_eps]
+				if videos == nil {
+					videos, err = GetVideos(ctx, result, episode)
+					if err != nil {
+						Red.Println(err.Error())
+						continue
+					}
 				}
-				break
 			case "search other":
 				break cinema
 			case "change quality":
 				quality = SelectQuality(videos.Sources)
 				break
 			case "next episode":
-				if episode_index >= len(options) {
+				if episode_index >= (len(options) - 1) {
 					Red.Println("Episode not Found")
+					time.Sleep(1 * time.Second)
 					continue
 				}
 				episode_index++
 				episode = map_eps[options[episode_index]]
-				videos, err = GetVideos(ctx, result, episode)
-				if err != nil {
-					Red.Println(err.Error())
-					continue
+				select_eps = options[episode_index]
+				videos = map_video[select_eps]
+				if videos == nil {
+					videos, err = GetVideos(ctx, result, episode)
+					if err != nil {
+						Red.Println(err.Error())
+						continue
+					}
 				}
 				break
 			case "previous episode":
 				if episode_index <= 0 {
 					Red.Println("Episode not Found")
+					time.Sleep(1 * time.Second)
 					continue
 				}
 				episode_index--
 				episode = map_eps[options[episode_index]]
-				videos, err = GetVideos(ctx, result, episode)
-				if err != nil {
-					Red.Println(err.Error())
-					continue
+				select_eps = options[episode_index]
+				videos = map_video[select_eps]
+				if videos == nil {
+					videos, err = GetVideos(ctx, result, episode)
+					if err != nil {
+						Red.Println(err.Error())
+						continue
+					}
 				}
 				break
+			default:
+				videos = nil
+				break
 			}
-
-			url, subtitles := GetVideo(videos, quality)
-			if url == nil {
-				Red.Println(fmt.Errorf("Video Not Found"))
-				continue
+			if videos == nil {
+				PlayVideo(ctx, "", nil)
+			} else {
+				url, subtitles := GetVideo(videos, quality)
+				if url == nil {
+					Red.Println(fmt.Errorf("Video Not Found"))
+					continue
+				}
+				PlayVideo(ctx, *url, subtitles)
 			}
-			PlayVideo(ctx, *url, subtitles)
+		}
+		for k := range map_video {
+			delete(map_video, k)
 		}
 	}
 
@@ -166,4 +196,8 @@ func SelectQuality(videos []Video) string {
 	}
 	quality := Prompt("select quality", qualities)
 	return quality
+}
+
+func HandlePlay(videos *SearchVideo, quality string) {
+
 }

@@ -32,6 +32,11 @@ type SearchVideo struct {
 	Subtitles []Subtitle `json:"subtitles,omitempty"`
 }
 
+type SearvideoChan struct {
+	Key         string
+	SearchVideo SearchVideo
+}
+
 type Video struct {
 	Url     string `json:"url,omitempty"`
 	Quality string `json:"quality,omitempty"`
