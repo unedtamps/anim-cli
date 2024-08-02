@@ -1,8 +1,7 @@
 name: Build Go
 on:
-  push:
-    tags:
-      - '*'
+  release:
+    types: [created]
 permissions:
   contents: write
   packages: write
