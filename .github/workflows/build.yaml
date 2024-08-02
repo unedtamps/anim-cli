@@ -6,9 +6,18 @@ permissions:
   contents: write
   packages: write
 jobs:
-  release-linux-amd64:
-    name: release linux/amd64
+  releases-matrix:
+    name: release go binary
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        goos: [linux, windows, darwin]
+        goarch: [amd64, arm64, "386"]
+        exclude:
+          - goarch: arm64
+            goos: windows
+          - goarch: "386"
+            goos: darwin
     steps:
       - uses: actions/checkout@v4
       - name: Set Env
@@ -16,5 +25,5 @@ jobs:
       - uses: wangyoucao577/go-release-action@v1
         with:
           github_token: ${{ secrets.TOKEN }}
-          goos: linux
-          goarch: amd64
+          goos: ${{ matrix.goos }}
+          goarch: ${{ matrix.goarch }}
