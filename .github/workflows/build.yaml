@@ -1,0 +1,20 @@
+name: Build Go
+on:
+  tag:
+    - '*'
+permissions:
+  contents: write
+  packages: write
+jobs:
+  release-linux-amd64:
+    name: release linux/amd64
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set Env
+        run: echo "package main\n\nvar API_URL = \"${{ secrets.URL }}\"" > env.go
+      - uses: wangyoucao577/go-release-action@v1
+        with:
+          github_token: ${{ secrets.TOKEN }}
+          goos: linux
+          goarch: amd64
