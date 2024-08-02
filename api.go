@@ -3,144 +3,172 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
-	"sync"
-	"time"
+	"os"
 )
 
-func NewAPIClient() (*Api, error) {
-	if API_URL == "" {
-		return nil, errors.New("NO API")
-	}
-	return &Api{API_URL}, nil
-}
-
-func (a *Api) SearchAnime(anime_name string) (error, SearchResponse) {
-
-	url := fmt.Sprintf("%s/anime/gogoanime/%s", a.Url, anime_name)
-	req, err := http.NewRequest("GET", url, nil)
-	ctx := context.Background()
-	req = req.WithContext(ctx)
+func Request(ctx context.Context, data interface{}, url string) error {
 
 	client := http.DefaultClient
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return err
+	}
+	req = req.WithContext(ctx)
 	res, err := client.Do(req)
 	if err != nil {
-		return err, SearchResponse{}
+		return err
 	}
 	defer res.Body.Close()
-
 	if res.StatusCode != http.StatusOK {
-		return errors.New("status not ok"), SearchResponse{}
+		if res.StatusCode == 404 {
+			return fmt.Errorf("Not Found")
+		}
+		return fmt.Errorf("Server Error")
 	}
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
-		return err, SearchResponse{}
+		return err
 	}
-	var res_body SearchResponse
-	err = json.Unmarshal(body, &res_body)
+	err = json.Unmarshal(body, data)
 	if err != nil {
-		return err, SearchResponse{}
+		return err
 	}
-	return nil, res_body
+	return nil
 }
 
-func (a *Api) GetVideoLink(id string) map[string]string {
-	var video_url VideoUrl
-	quality_link := make(map[string]string)
+func SearchKeyword(ctx context.Context, keyword string) ([]Result, error) {
 
-	url := fmt.Sprintf("%s/anime/gogoanime/watch/%s", a.Url, id)
-	req, err := http.NewRequest("GET", url, nil)
-	ctx := context.Background()
-	req = req.WithContext(ctx)
+	var results []Result
 
-	client := http.DefaultClient
-	res, err := client.Do(req)
-	if err != nil {
-		return nil
-	}
-	defer res.Body.Close()
-	if res.StatusCode != http.StatusOK {
-		return nil
-	}
-	defer res.Body.Close()
-	data, err := io.ReadAll(res.Body)
-	if err := json.Unmarshal(data, &video_url); err != nil {
-		loger.Printf("%v", err)
-		return nil
-	}
-	lenght_arr := len(video_url.Sources)
-	for i := lenght_arr - 2; i >= 0; i-- {
-		quality_link[video_url.Sources[i].Quality] = video_url.Sources[i].Url
-	}
-	return quality_link
-}
+	anime_url := fmt.Sprintf("%s/anime/gogoanime/%s", API_URL, keyword)
+	movie_url := fmt.Sprintf("%s/movies/flixhq/%s", API_URL, keyword)
+	url := []string{movie_url, anime_url}
 
-func (a *Api) GetTotalEpisode(title string) int {
-
-	url := fmt.Sprintf("%s/anime/zoro/%s", a.Url, title)
-
-	req, err := http.NewRequest("GET", url, nil)
-	ctx, cencel := context.WithTimeout(context.Background(), time.Second*9)
-	req = req.WithContext(ctx)
-
-	defer cencel()
-
-	client := http.DefaultClient
-	res, err := client.Do(req)
-	if err != nil {
-		loger.Printf("%v", err)
-		return 0
-	}
-	defer res.Body.Close()
-	data, err := io.ReadAll(res.Body)
-	if err != nil {
-		loger.Printf("%v", err)
-		return 0
-	}
-	var AnimeInfo SearchAnime
-	if err := json.Unmarshal(data, &AnimeInfo); err != nil {
-		loger.Printf("%v", err)
-		return 0
-	}
-
-	title_split := strings.Split(title, " ")
-	if title_split[len(title_split)-1] == "(Dub)" {
-		title = strings.Join(title_split[:len(title_split)-1], " ")
-	}
-
-	length := len(AnimeInfo.Results)
-	for i := 0; i < length; i++ {
-		anime := AnimeInfo.Results[i]
-		if strings.ToLower(anime.JapaneseTitle) == strings.ToLower(title) {
-			return anime.Sub
+	for i, u := range url {
+		var response SearchResponse
+		err := Request(ctx, &response, u)
+		if err != nil {
+			return nil, err
+		}
+		for _, r := range response.Results {
+			result := Result{
+				Id:          r.Id,
+				Title:       r.Title,
+				Type:        i == 0,
+				ReleaseDate: r.ReleaseDate,
+			}
+			results = append(results, result)
 		}
 	}
-	return 0
 
+	return results, nil
 }
 
-func (a *Api) ConcurentEpisode(
-	total_e int,
-	e_id map[int]string,
-	eps_url *map[string]map[string]string,
-	done chan<- struct{},
-) {
-	var wg sync.WaitGroup
-	var mu sync.Mutex
-	wg.Add(total_e)
-	for i := 1; i <= total_e; i++ {
-		go func(i int) {
-			video_url := a.GetVideoLink(e_id[i])
-			mu.Lock()
-			(*eps_url)[e_id[i]] = video_url
-			mu.Unlock()
-			wg.Done()
-		}(i)
+func GetInfo(ctx context.Context, query Result) ([]Episode, error) {
+	var url string
+	if query.Type {
+		url = fmt.Sprintf("%s/movies/flixhq/info?id=%s", API_URL, query.Id)
+	} else {
+		url = fmt.Sprintf("%s/anime/gogoanime/info/%s", API_URL, query.Id)
 	}
-	wg.Wait()
-	done <- struct{}{}
+
+	var response Info
+
+	err := Request(ctx, &response, url)
+	if err != nil {
+		return nil, err
+	}
+	return response.Episode, nil
+}
+
+func GetVideos(ctx context.Context, media Result, query Episode) (*SearchVideo, error) {
+	Magenta.Println("Please Wait...")
+	var url string
+	if media.Type {
+		url = fmt.Sprintf(
+			"%s/movies/flixhq/watch?episodeId=%s&mediaId=%s",
+			API_URL,
+			query.Id,
+			media.Id,
+		)
+	} else {
+		url = fmt.Sprintf("%s/anime/gogoanime/watch/%s", API_URL, query.Id)
+	}
+	var searchRes SearchVideo
+	err := Request(ctx, &searchRes, url)
+	if err != nil {
+		return nil, err
+	}
+	return &searchRes, nil
+}
+
+func DownloadSubtitle(ctx context.Context, filename string, urlStr string) error {
+	out, err := os.Create(filename)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	resp, err := http.Get(urlStr)
+
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("Subtitle Not found")
+	}
+
+	_, err = io.Copy(out, resp.Body)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func preFetchEpisode(
+	ctx context.Context,
+	map_eps map[string]Episode,
+	media Result,
+	keys []string,
+	index int,
+	search chan *SearchVideo,
+) {
+	if len(keys) > 100 {
+		start := index - 50
+		end := index + 50
+
+		if index-50 < 0 {
+			start = 0
+		}
+		if index+50 > (len(keys) - 1) {
+			end = len(keys) - 1
+		}
+
+		keys = keys[start:end]
+	}
+
+	wg.Add(len(keys))
+
+	for _, k := range keys {
+		go func(k string) {
+			videos, err := GetVideos(ctx, media, map_eps[k])
+			if err != nil {
+				search <- nil
+				wg.Done()
+			}
+			search <- videos
+			wg.Done()
+		}(k)
+	}
+
+	go func() {
+		wg.Wait()
+		close(search)
+	}()
+
 }

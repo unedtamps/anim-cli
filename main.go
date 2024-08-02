@@ -6,142 +6,164 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path/filepath"
+	"sync"
 	"syscall"
-	"time"
 
-	"github.com/fatih/color"
 	"github.com/sirupsen/logrus"
 )
 
-var red = color.New(color.FgRed, color.Bold)
 var loger = logrus.New()
+var wg sync.WaitGroup
 
 func main() {
-	// var wg sync.WaitGroup
+	ClearScreen()
 
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer stop()
-
-	api, err := NewAPIClient()
-	if err != nil {
-		loger.Fatal(err.Error())
-	}
-
-	go StartMpv()
-	time.Sleep(500 * time.Millisecond)
+	go StartMedia()
+	ctx := context.Background()
+	quit := make(chan os.Signal)
 
 	go func() {
+		signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+		<-quit
+		ClearScreen()
+		Blue.Println("Exiting...")
+		exec.Command("rm", "mpvsocket").Run()
+		files, _ := filepath.Glob("*.vtt")
+		wg.Add(len(files))
+		for _, f := range files {
+			go func(f string) {
+				os.Remove(f)
+				wg.Done()
+			}(f)
+		}
+		wg.Wait()
+		Green.Println("Done!!")
+		os.Exit(0)
+	}()
 
+	for {
+		keywords := PromptAsk("Enter the keywords...")
+		if keywords == "" {
+			Red.Println("Cannot Be Empty")
+		}
+		res, err := SearchKeyword(ctx, keywords)
+		if err != nil {
+			Red.Println(err.Error())
+			continue
+		}
+		if res == nil {
+			Red.Println("Not Found , Try Again!")
+			continue
+		}
+		options, map_res := MapingResult(res, keywords)
+		selected := Prompt("Select To Watch: ", options)
+		result := map_res[selected]
+
+		episodes, err := GetInfo(ctx, result)
+		if err != nil {
+			Red.Println(err.Error())
+			continue
+		}
+
+		options, map_eps := MapingEpisode(result, episodes)
+
+		select_eps := Prompt("Select <Season-Episode>...", options)
+
+		episode_index := FindIndex(options, select_eps)
+
+		episode := map_eps[select_eps]
+
+		videos, err := GetVideos(ctx, result, episode)
+		if err != nil {
+			Red.Println(err.Error())
+			continue
+		}
+
+		quality := "720"
+		url, subtitles := GetVideo(videos, quality)
+		if url == nil {
+			Red.Println("Video Not Found")
+			continue
+		}
+		PlayVideo(ctx, *url, subtitles)
+
+	cinema:
 		for {
-			anime_name := ScanToSlug()
-			err, res := api.SearchAnime(anime_name)
-			if err != nil {
-				//search again if error
-				loger.Println(err.Error())
-				continue
+			ClearScreen()
+			var q_menu string
+			if result.Type {
+				q_menu = Cyan.Sprintf("Now Playing... %s Season %d %s", result.Title, episode.Season, episode.Title)
+			} else {
+				q_menu = Cyan.Sprintf("Now Playing... %s (%d) ", result.Title, episode.Number)
 			}
-			search_anime, map_anime := MapingAnime(res)
-			if search_anime == nil {
-				red.Println("Anime Not Found , Try Again!")
-				continue
+			menus := []string{
+				"next episode",
+				"previous episode",
+				"change quality",
+				"search other",
+				"select episode",
 			}
-			selected_anime := Prompt("Select Anime: ", search_anime)
-
-			t_episode := api.GetTotalEpisode(selected_anime)
-			if t_episode == 0 {
-				loger.Info("Episode not found")
-				continue
-			}
-
-			maping_id_eps := make(map[string]map[string]string)
-			e_str, e_id := MapingEpisode(t_episode, map_anime[selected_anime])
-
-			completed_maping := make(chan struct{})
-
-			go api.ConcurentEpisode(t_episode%100, e_id, &maping_id_eps, completed_maping)
-			eps_num := 0
-			var video_url map[string]string
-
-			for {
-				sel_eps := Prompt("Select Episode", e_str)
-				eps_num = toInt(sel_eps)
-				video_url = DefaultPlay(api.GetVideoLink(e_id[eps_num]))
-				if video_url == nil {
+			select_menu := Prompt(q_menu, menus)
+			switch select_menu {
+			case "select episode":
+				select_eps = Prompt("Select <Season-Episode>...", options)
+				episode = map_eps[select_eps]
+				videos, err = GetVideos(ctx, result, episode)
+				if err != nil {
+					Red.Println(err.Error())
+					continue
+				}
+				break
+			case "search other":
+				break cinema
+			case "change quality":
+				quality = SelectQuality(videos.Sources)
+				break
+			case "next episode":
+				if episode_index >= len(options) {
+					Red.Println("Episode not Found")
+					continue
+				}
+				episode_index++
+				episode = map_eps[options[episode_index]]
+				videos, err = GetVideos(ctx, result, episode)
+				if err != nil {
+					Red.Println(err.Error())
+					continue
+				}
+				break
+			case "previous episode":
+				if episode_index <= 0 {
+					Red.Println("Episode not Found")
+					continue
+				}
+				episode_index--
+				episode = map_eps[options[episode_index]]
+				videos, err = GetVideos(ctx, result, episode)
+				if err != nil {
+					Red.Println(err.Error())
 					continue
 				}
 				break
 			}
 
-			<-completed_maping
-			for {
-				eps_url := maping_id_eps[e_id[eps_num]]
-				options := []string{
-					"Next Episode",
-					"Previous Episode",
-					"Select Episode",
-					"Change Quality",
-					"Other Anime",
-					"Stop Video",
-					"Exit",
-				}
-				answer := Prompt("Menu", options)
-				if answer == "Exit" {
-					PlayVideo("")
-					syscall.Kill(os.Getpid(), syscall.SIGINT)
-					time.Sleep(1 * time.Second)
-					return
-				} else if answer == "Select Episode" {
-					num_eps := Prompt("Select Episode", e_str)
-					eps_num = toInt(num_eps)
-					eps_url = maping_id_eps[e_id[eps_num]]
-					if eps_url != nil {
-						video_url = DefaultPlay(eps_url)
-						continue
-					}
-					video_url = DefaultPlay(api.GetVideoLink(e_id[eps_num]))
-					continue
-				} else if answer == "Other Anime" {
-					break
-				} else if answer == "Change Quality" {
-					optionq := []string{"360p", "480p", "720p", "1080p"}
-					Quality := Prompt("Select Quality", optionq)
-					PlayVideo(video_url[Quality])
-					continue
-				} else if answer == "Stop Video" {
-					PlayVideo("")
-					continue
-				} else if answer == "Previous Episode" {
-					eps_num -= 1
-					eps_url = maping_id_eps[e_id[eps_num]]
-
-					if eps_num <= 0 {
-						red.Println("Episode not found")
-						continue
-					}
-					if eps_url != nil {
-						video_url = DefaultPlay(eps_url)
-						continue
-					}
-					video_url = DefaultPlay(api.GetVideoLink(e_id[eps_num]))
-					continue
-				}
-				eps_num += 1
-				if eps_num > t_episode {
-					red.Println("Episode not found")
-					continue
-				}
-				eps_url = maping_id_eps[e_id[eps_num]]
-				if eps_url != nil {
-					video_url = DefaultPlay(eps_url)
-					continue
-				}
-				video_url = DefaultPlay(api.GetVideoLink(e_id[eps_num]))
+			url, subtitles := GetVideo(videos, quality)
+			if url == nil {
+				Red.Println(fmt.Errorf("Video Not Found"))
+				continue
 			}
+			PlayVideo(ctx, *url, subtitles)
 		}
-	}()
+	}
 
-	<-ctx.Done()
-	fmt.Println("Gracefully Exiting...")
-	exec.Command("rm", "mpvsocket").Run()
-	os.Exit(0)
+}
+
+func SelectQuality(videos []Video) string {
+	var qualities []string
+	for _, v := range videos {
+		qualities = append(qualities, v.Quality)
+	}
+	quality := Prompt("select quality", qualities)
+	return quality
 }

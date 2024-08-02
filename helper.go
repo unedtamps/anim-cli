@@ -1,99 +1,142 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"os"
-	"strconv"
+	"sort"
 	"strings"
 	"syscall"
 
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/fatih/color"
-
-	"github.com/gosimple/slug"
+	"github.com/inancgumus/screen"
+	"github.com/manifoldco/promptui"
 )
 
-var input = color.New(color.FgBlue, color.Bold)
+var (
+	BlueBg  = color.New(color.BgHiBlue, color.FgBlack)
+	Blue    = color.New(color.FgHiBlue, color.Bold)
+	Yellow  = color.New(color.FgHiYellow)
+	RedBg   = color.New(color.BgHiRed, color.FgBlack)
+	GreenBg = color.New(color.BgHiGreen, color.FgBlack)
+	Green   = color.New(color.FgHiGreen, color.Bold)
+	Magenta = color.New(color.FgHiMagenta, color.Bold)
+	Red     = color.New(color.BgHiRed)
+	Cyan    = color.New(color.FgHiCyan, color.Bold)
+)
 
-func ScanToSlug() string {
-	input.Print("Search Anime: ")
-	reader := bufio.NewReader(os.Stdin)
-
-	anime_name, _ := reader.ReadString('\n')
-	anime_name = slug.Make(anime_name)
-	return anime_name
+func ClearScreen() {
+	screen.Clear()
+	screen.MoveTopLeft()
 }
 
-func toInt(num string) int {
-	integer, _ := strconv.Atoi(num)
-	return integer
-}
+func MapingResult(results []Result, keyword string) ([]string, map[string]Result) {
 
-func toStr(num int) string {
-	return strconv.Itoa(num)
-}
-
-func ToSlug(a ...string) string {
-	return strings.Join(a, "-")
-}
-
-func MapingAnime(anime SearchResponse) ([]string, map[string]string) {
-
-	var anime_select []string
-	map_id := make(map[string]string)
-	for _, an := range anime.Results {
-		anime_select = append(anime_select, an.Title)
-		map_id[an.Title] = an.Id
+	var options []string
+	map_res := make(map[string]Result)
+	for _, r := range results {
+		option := fmt.Sprintf("%s %s", r.Title, r.ReleaseDate)
+		options = append(options, option)
+		map_res[option] = r
 	}
-	return anime_select, map_id
+	a := []rune(strings.ToLower(keyword))
+	firstWord := string(a[0:1])
+	sort.Slice(options, func(i, j int) bool {
+		is := strings.HasPrefix(strings.ToLower(options[i]), firstWord)
+		js := strings.HasPrefix(strings.ToLower(options[j]), firstWord)
+		if is == js {
+			return i < j
+		}
+		return is && !js
+	})
+
+	return options, map_res
 }
 
-func MapingEpisode(total_episode int, anime_id string) ([]string, map[int]string) {
-	var EpisodeNum []string
-	EpisodesId := make(map[int]string)
-	for i := 1; i <= total_episode; i++ {
-		index := fmt.Sprintf("%d", i)
-		EpisodeId := ToSlug(anime_id, "episode", index)
-		EpisodesId[i] = EpisodeId
-		EpisodeNum = append(EpisodeNum, index)
+func MapingEpisode(media Result, episodes []Episode) ([]string, map[string]Episode) {
+	var options []string
+	map_res := make(map[string]Episode)
+	for _, e := range episodes {
+		var option string
+		if media.Type {
+			title := strings.Split(e.Title, ":")[1]
+			option = fmt.Sprintf("%d-%d (%s)", e.Season, e.Number, strings.TrimSpace(title))
+		} else {
+			option = fmt.Sprintf("%d", e.Number)
+		}
+		options = append(options, option)
+		map_res[option] = e
 	}
-	return EpisodeNum, EpisodesId
+	return options, map_res
 }
 
-func Prompt(q string, opt []string) string {
-	var answer string
-	prompt := &survey.Select{
-		Message:  q,
-		Options:  opt,
-		Default:  opt[0],
-		PageSize: 10,
-		VimMode:  true,
+func Prompt(q string, options []string) string {
+	lable := Yellow.Sprintf("%s <vim cmd>", q)
+
+	templates := promptui.SelectTemplates{
+		Label:    "   {{ . | bold}}",
+		Active:   "⏩ {{ . | green | bold}}",
+		Inactive: "  {{ . | blue }}",
+		Selected: "",
 	}
-	if err := survey.AskOne(prompt, &answer, survey.WithValidator(survey.Required)); err != nil {
-		loger.Println(err)
+	searcher := func(input string, index int) bool {
+		pepper := options[index]
+		name := strings.Replace(strings.ToLower(pepper), " ", "", -1)
+		input = strings.Replace(strings.ToLower(input), " ", "", -1)
+
+		return strings.Contains(name, input)
+	}
+	selector := promptui.Select{
+		HideSelected:      true,
+		Label:             lable,
+		Items:             options,
+		CursorPos:         0,
+		HideHelp:          true,
+		Templates:         &templates,
+		IsVimMode:         true,
+		Size:              10,
+		StartInSearchMode: true,
+		Searcher:          searcher,
+	}
+	_, res, err := selector.Run()
+	if err != nil {
+		Red.Println(err.Error())
 		syscall.Kill(os.Getpid(), syscall.SIGINT)
 	}
-	return answer
+	return res
 }
 
-// func FlagHelper(comd, image, port, cont string, done chan<- struct{}) {
-// 	var cmd *exec.Cmd
-// 	if comd == "run" {
-// 		p := fmt.Sprintf("%s:3000", port)
-// 		cmd = exec.Command("docker", "run", "--name", cont, "-p", p, image)
-// 	} else {
-// 		cmd = exec.Command("docker", "start", cont)
-// 	}
-// 	if err := cmd.Run(); err != nil {
-// 		loger.Fatal(err, "probably no such container: ", cont)
-// 	}
-// 	done <- struct{}{}
-// }
+func PromptAsk(q string) string {
+	templates := &promptui.PromptTemplates{
+		Prompt:  "{{ . | bold }} ",
+		Valid:   "{{ . | blue | bold }} ",
+		Invalid: "{{ . | red | bold | italic }} ",
+		Success: "{{ . | green | bold }} ",
+	}
 
-// func StopServer(cont string) {
-// 	cmd := exec.Command("docker", "stop", cont)
-// 	if err := cmd.Run(); err != nil {
-// 		loger.Fatal(err)
-// 	}
-// }
+	validate := func(input string) error {
+		if input == "" {
+			return fmt.Errorf("Cannot Empty")
+		}
+		return nil
+	}
+	prompt := promptui.Prompt{
+		Label:     fmt.Sprintf("%s", q),
+		Templates: templates,
+		Validate:  validate,
+	}
+
+	res, err := prompt.Run()
+	if err != nil {
+		syscall.Kill(os.Getpid(), syscall.SIGINT)
+	}
+	return res
+}
+
+func FindIndex(arr []string, val string) int {
+	for i, v := range arr {
+		if v == val {
+			return i
+		}
+	}
+	return -1
+}

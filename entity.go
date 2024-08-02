@@ -1,52 +1,43 @@
 package main
 
-type AnimeGeneral struct {
-	Id    string `json:"id,omitempty"`
-	Title string `json:"title,omitempty"`
+type SearchResult struct {
+	Id          string `json:"id,omitempty"`
+	Title       string `json:"title,omitempty"`
+	ReleaseDate string `json:"releaseDate,omitempty"`
+}
+type Result struct {
+	Id          string
+	Title       string
+	Type        bool
+	ReleaseDate string
 }
 
 type SearchResponse struct {
-	CurrentPage int            `json:"currentPage,omitempty"`
-	HasNextPage bool           `json:"hasNextPage,omitempty"`
-	Results     []AnimeGeneral `json:"results,omitempty"`
+	Results []SearchResult `json:"results,omitempty"`
 }
 
-type SourceVideo struct {
+type Info struct {
+	Episode []Episode `json:"episodes,omitempty"`
+}
+
+type Episode struct {
+	Id     string `json:"id"`
+	Number int    `json:"number"`
+	Title  string `json:"title,omitempty"`
+	Season int    `json:"season,omitempty"`
+}
+
+type SearchVideo struct {
+	Sources   []Video    `json:"sources"`
+	Subtitles []Subtitle `json:"subtitles,omitempty"`
+}
+
+type Video struct {
 	Url     string `json:"url,omitempty"`
-	IsM3U8  bool   `json:"isM3U8,omitempty"`
 	Quality string `json:"quality,omitempty"`
 }
 
-type HeaderVideo struct {
-	Referer string `json:"referer,omitempty"`
-}
-
-type VideoUrl struct {
-	Headers HeaderVideo   `json:"headers,omitempty"`
-	Sources []SourceVideo `json:"sources,omitempty"`
-}
-
-type Api struct {
-	Url string
-}
-
-type SearchAnime struct {
-	CurrentPage int         `json:"currentPage,omitempty"`
-	HasNextPage bool        `json:"hasNextPage,omitempty"`
-	TotalPage   int         `json:"totalPage,omitempty"`
-	Results     []AnimeInfo `json:"results,omitempty"`
-}
-
-type AnimeInfo struct {
-	Id            string `json:"id,omitempty"`
-	Title         string `json:"title,omitempty"`
-	Url           string `json:"url,omitempty"`
-	Image         string `json:"image,omitempty"`
-	Duration      string `json:"duration,omitempty"`
-	JapaneseTitle string `json:"japaneseTitle,omitempty"`
-	Type          string `json:"type,omitempty"`
-	Nsfw          bool   `json:"nsfw,omitempty"`
-	Sub           int    `json:"sub,omitempty"`
-	Dub           int    `json:"dub,omitempty"`
-	Episode       int    `json:"episodes,omitempty"`
+type Subtitle struct {
+	Url  string `json:"url"`
+	Lang string `json:"lang"`
 }
