@@ -8,4 +8,5 @@
 Download the latest [release](
 https://github.com/unedtamps/cine-cli/releases)
 
-![Screencast2024-03-31190921-ezgif com-video-to-gif-converter](https://github.com/unedtamps/anim-cli/assets/103123337/3eea81d4-a21b-4641-af40-f77b9936e798)
+## Demo
+[![Demo]](https://github.com/user-attachments/assets/1e1a85ad-23c0-4e6d-80dd-1c09a0400240)
